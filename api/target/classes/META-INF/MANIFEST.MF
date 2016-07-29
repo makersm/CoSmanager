@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bnd-LastModified: 1469775376078
+Build-Jdk: 1.8.0_91
+Built-By: gurum
+Bundle-Description: ONOS Virtual CoS Manager API
+Bundle-ManifestVersion: 2
+Bundle-Name: csdncm-app-cosmanager-api
+Bundle-SymbolicName: org.iris4sdn.csdncm.app-cosmanager-api
+Bundle-Version: 1.4.0.SNAPSHOT
+Created-By: Apache Maven Bundle Plugin
+Export-Package: org.iris4sdn.csdncm.cosmanager;version="1.4.0"
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+Tool: Bnd-3.0.0.201509101326
