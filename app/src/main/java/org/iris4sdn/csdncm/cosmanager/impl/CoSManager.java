@@ -22,16 +22,16 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.iris4sdn.csdncm.cosmanager.CoSService;
+import org.iris4sdn.csdncm.vxlanflowmapper.DefaultOuterPacket;
 import org.iris4sdn.csdncm.vxlanflowmapper.InnerPacket;
 import org.iris4sdn.csdncm.vxlanflowmapper.MapperEvent;
 import org.iris4sdn.csdncm.vxlanflowmapper.MapperListener;
+import org.iris4sdn.csdncm.vxlanflowmapper.OuterPacket;
 import org.iris4sdn.csdncm.vxlanflowmapper.VxlanFlowMappingService;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
-import org.onosproject.net.Host;
 import org.onosproject.net.flowobjective.Objective;
-import org.onosproject.net.host.HostEvent;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.EventuallyConsistentMapListener;
@@ -39,6 +39,7 @@ import org.onosproject.store.service.LogicalClockService;
 import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 
+import java.util.Map;
 import java.util.Set;
 
 import static org.slf4j.LoggerFactory.getLogger;
@@ -65,13 +66,16 @@ public class CoSManager implements CoSService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected VxlanFlowMappingService vxlanFlowMappingService;
 
+
     private ApplicationId appId;
 
     private MapperListener mapperListener = new InnerMapperListener();
     private CoSListener cosListener = new CoSListener();
+    private static CoSRuleInstaller installer;
     @Activate
     public void activate() {
         appId = coreService.registerApplication(APP_ID);
+        installer = CoSRuleInstaller.ruleInstaller(appId);
 
         KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
                 .register(String.class)
@@ -126,23 +130,24 @@ public class CoSManager implements CoSService {
         }
     }
 
-    private void processMapper(InnerPacket innerPacket, Objective.Operation type) {
-        log.info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa");
+
+    private void processMapper(String outerPacket, InnerPacket innerPacket, Objective.Operation type) {
+        log.info("processMapper : vid {}",innerPacket.vnid());
         if(cosStore.containsKey(innerPacket.vnid())){
-            //TODO enqueue packet ...
+            Map<String, String> out = DefaultOuterPacket.decodeStringPacket(outerPacket);
+            installer.enqueue(out, cosStore.get(innerPacket.vnid()),type);
         }
     }
 
     public class InnerMapperListener implements MapperListener {
         @Override
         public void event(MapperEvent event) {
-            InnerPacket mapper = event.subject();
+            EventuallyConsistentMapEvent<String, InnerPacket> mapper = event.subject();
             if (MapperEvent.Type.MAPPER_PUT == event.type()) {
-                processMapper(mapper, Objective.Operation.ADD);
+                processMapper(mapper.key(), mapper.value(), Objective.Operation.ADD);
             } else if (MapperEvent.Type.MAPPER_REMOVE == event.type()) {
-                processMapper(mapper, Objective.Operation.REMOVE);
+                processMapper(mapper.key(), mapper.value(), Objective.Operation.REMOVE);
             }
         }
     }
-
 }

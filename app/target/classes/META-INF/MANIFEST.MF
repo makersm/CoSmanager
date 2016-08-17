@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1469775378434
+Bnd-LastModified: 1471411449170
 Build-Jdk: 1.8.0_91
 Built-By: gurum
 Bundle-Blueprint: OSGI-INF/blueprint/shell-config.xml
@@ -16,19 +16,22 @@ Export-Package: org.iris4sdn.csdncm.cosmanager.cli;uses:="org.apache.kar
  t,org.onosproject.rest";version="1.4.0"
 Import-Package: org.slf4j;version="[1.7,2)",javax.ws.rs;version="[1.1,2)
  ",javax.ws.rs.core;version="[1.1,2)",com.fasterxml.jackson.databind;ver
- sion="[2.4,3)",org.apache.karaf.shell.commands;version="[3.0,4)",org.on
- lab.rest;version="[1.5,2)",org.onosproject.cli;version="[1.5,2)",org.on
- osproject.core;version="[1.5,2)",org.onosproject.event;version="[1.5,2)
- ",org.onosproject.net.flowobjective;version="[1.5,2)",org.onosproject.r
- est;version="[1.5,2)",org.onosproject.store;version="[1.5,2)",org.onosp
- roject.store.service;version="[1.5,2)",org.onlab.util;version="[1.5,2)"
- ,org.iris4sdn.csdncm.cosmanager,org.iris4sdn.csdncm.vxlanflowmapper;ver
- sion="[1.4,2)",org.osgi.service.blueprint;version="[1.0.0,2.0.0)",com.f
- asterxml.jackson.core;version="[2.4,3)",org.apache.karaf.shell.console;
- version="[3.0,4)",org.osgi.framework,com.sun.jersey.api.core,com.sun.je
- rsey.spi.container.servlet;version="[1.19,2)",com.sun.jersey.server.imp
- l.container.servlet;version="[1.19,2)",com.fasterxml.jackson.databind.n
- ode;version="[2.4,3)"
+ sion="[2.4,3)",org.apache.karaf.shell.commands;version="[3.0,4)",com.go
+ ogle.common.collect;version="[18.0,19)",org.onlab.packet;version="[1.5,
+ 2)",org.onlab.rest;version="[1.5,2)",org.onosproject.cli;version="[1.5,
+ 2)",org.onosproject.core;version="[1.5,2)",org.onosproject.event;versio
+ n="[1.5,2)",org.onosproject.net;version="[1.5,2)",org.onosproject.net.d
+ evice;version="[1.5,2)",org.onosproject.net.flow;version="[1.5,2)",org.
+ onosproject.net.flowobjective;version="[1.5,2)",org.onosproject.rest;ve
+ rsion="[1.5,2)",org.onosproject.store;version="[1.5,2)",org.onosproject
+ .store.service;version="[1.5,2)",org.onlab.util;version="[1.5,2)",org.i
+ ris4sdn.csdncm.cosmanager,org.iris4sdn.csdncm.vxlanflowmapper;version="
+ [1.4,2)",org.onlab.osgi;version="[1.5,2)",org.osgi.service.blueprint;ve
+ rsion="[1.0.0,2.0.0)",com.fasterxml.jackson.databind.node;version="[2.4
+ ,3)",com.sun.jersey.server.impl.container.servlet;version="[1.19,2)",or
+ g.osgi.framework,org.apache.karaf.shell.console;version="[3.0,4)",com.s
+ un.jersey.api.core,com.sun.jersey.spi.container.servlet;version="[1.19,
+ 2)",com.fasterxml.jackson.core;version="[2.4,3)"
 Provide-Capability: osgi.service;effective:=active;objectClass="org.iris
  4sdn.csdncm.cosmanager.CoSService"
 Require-Capability: osgi.service;effective:=active;filter:="(objectClass
