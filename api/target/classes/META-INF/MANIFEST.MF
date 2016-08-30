@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1471411446286
+Bnd-LastModified: 1472547212775
 Build-Jdk: 1.8.0_91
 Built-By: gurum
 Bundle-Description: ONOS Virtual CoS Manager API

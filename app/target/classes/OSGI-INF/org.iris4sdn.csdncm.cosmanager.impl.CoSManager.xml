@@ -9,5 +9,8 @@
         <reference name="storageService" interface="org.onosproject.store.service.StorageService" cardinality="1..1" policy="static" bind="bindStorageService" unbind="unbindStorageService"/>
         <reference name="clockService" interface="org.onosproject.store.service.LogicalClockService" cardinality="1..1" policy="static" bind="bindClockService" unbind="unbindClockService"/>
         <reference name="vxlanFlowMappingService" interface="org.iris4sdn.csdncm.vxlanflowmapper.VxlanFlowMappingService" cardinality="1..1" policy="static" bind="bindVxlanFlowMappingService" unbind="unbindVxlanFlowMappingService"/>
+        <reference name="packetService" interface="org.onosproject.net.packet.PacketService" cardinality="1..1" policy="static" bind="bindPacketService" unbind="unbindPacketService"/>
+        <reference name="topologyService" interface="org.onosproject.net.topology.TopologyService" cardinality="1..1" policy="static" bind="bindTopologyService" unbind="unbindTopologyService"/>
+        <reference name="hostService" interface="org.onosproject.net.host.HostService" cardinality="1..1" policy="static" bind="bindHostService" unbind="unbindHostService"/>
     </scr:component>
 </components>

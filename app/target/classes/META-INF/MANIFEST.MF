@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1471411449170
+Bnd-LastModified: 1472547215317
 Build-Jdk: 1.8.0_91
 Built-By: gurum
 Bundle-Blueprint: OSGI-INF/blueprint/shell-config.xml
@@ -22,26 +22,33 @@ Import-Package: org.slf4j;version="[1.7,2)",javax.ws.rs;version="[1.1,2)
  2)",org.onosproject.core;version="[1.5,2)",org.onosproject.event;versio
  n="[1.5,2)",org.onosproject.net;version="[1.5,2)",org.onosproject.net.d
  evice;version="[1.5,2)",org.onosproject.net.flow;version="[1.5,2)",org.
- onosproject.net.flowobjective;version="[1.5,2)",org.onosproject.rest;ve
- rsion="[1.5,2)",org.onosproject.store;version="[1.5,2)",org.onosproject
- .store.service;version="[1.5,2)",org.onlab.util;version="[1.5,2)",org.i
- ris4sdn.csdncm.cosmanager,org.iris4sdn.csdncm.vxlanflowmapper;version="
- [1.4,2)",org.onlab.osgi;version="[1.5,2)",org.osgi.service.blueprint;ve
- rsion="[1.0.0,2.0.0)",com.fasterxml.jackson.databind.node;version="[2.4
- ,3)",com.sun.jersey.server.impl.container.servlet;version="[1.19,2)",or
- g.osgi.framework,org.apache.karaf.shell.console;version="[3.0,4)",com.s
- un.jersey.api.core,com.sun.jersey.spi.container.servlet;version="[1.19,
- 2)",com.fasterxml.jackson.core;version="[2.4,3)"
+ onosproject.net.flowobjective;version="[1.5,2)",org.onosproject.net.hos
+ t;version="[1.5,2)",org.onosproject.net.packet;version="[1.5,2)",org.on
+ osproject.net.topology;version="[1.5,2)",org.onosproject.rest;version="
+ [1.5,2)",org.onosproject.store;version="[1.5,2)",org.onosproject.store.
+ service;version="[1.5,2)",org.onlab.util;version="[1.5,2)",org.iris4sdn
+ .csdncm.cosmanager,org.iris4sdn.csdncm.vxlanflowmapper;version="[1.4,2)
+ ",org.onlab.osgi;version="[1.5,2)",org.osgi.service.blueprint;version="
+ [1.0.0,2.0.0)",com.sun.jersey.spi.container.servlet;version="[1.19,2)",
+ org.osgi.framework,org.apache.karaf.shell.console;version="[3.0,4)",com
+ .fasterxml.jackson.databind.node;version="[2.4,3)",com.sun.jersey.api.c
+ ore,com.fasterxml.jackson.core;version="[2.4,3)",com.sun.jersey.server.
+ impl.container.servlet;version="[1.19,2)"
 Provide-Capability: osgi.service;effective:=active;objectClass="org.iris
  4sdn.csdncm.cosmanager.CoSService"
 Require-Capability: osgi.service;effective:=active;filter:="(objectClass
- =org.iris4sdn.csdncm.vxlanflowmapper.VxlanFlowMappingService)",osgi.ser
- vice;effective:=active;filter:="(objectClass=org.onosproject.rest.ApiDo
- cService)",osgi.service;effective:=active;filter:="(objectClass=org.ono
- sproject.store.service.LogicalClockService)",osgi.service;effective:=ac
- tive;filter:="(objectClass=org.onosproject.core.CoreService)",osgi.serv
- ice;effective:=active;filter:="(objectClass=org.onosproject.store.servi
- ce.StorageService)",osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+ =org.onosproject.net.packet.PacketService)",osgi.service;effective:=act
+ ive;filter:="(objectClass=org.iris4sdn.csdncm.vxlanflowmapper.VxlanFlow
+ MappingService)",osgi.service;effective:=active;filter:="(objectClass=o
+ rg.onosproject.rest.ApiDocService)",osgi.service;effective:=active;filt
+ er:="(objectClass=org.onosproject.store.service.LogicalClockService)",o
+ sgi.service;effective:=active;filter:="(objectClass=org.onosproject.net
+ .host.HostService)",osgi.service;effective:=active;filter:="(objectClas
+ s=org.onosproject.net.topology.TopologyService)",osgi.service;effective
+ :=active;filter:="(objectClass=org.onosproject.core.CoreService)",osgi.
+ service;effective:=active;filter:="(objectClass=org.onosproject.store.s
+ ervice.StorageService)",osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8
+ ))"
 Service-Component: OSGI-INF/org.iris4sdn.csdncm.cosmanager.impl.CoSManag
  er.xml,OSGI-INF/org.iris4sdn.csdncm.cosmanager.cosweb.ApiDocRegistrator
  .xml

@@ -38,12 +38,14 @@ import static org.slf4j.LoggerFactory.getLogger;
  */
 public class CoSRuleInstaller {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-
     private final Logger log = getLogger(getClass());
+
     private final FlowObjectiveService flowObjectiveService;
     private final DeviceService deviceService;
+
     private final ApplicationId appId;
-    private static final int DEFAULT_PRIORITY = 50000;
+    private static final int DEFAULT_PRIORITY = 20;
+    private static final int DEFAULT_TIMEOUT = 10;
 
     private CoSRuleInstaller(ApplicationId appId) {
         ServiceDirectory serviceDirectory = new DefaultServiceDirectory();
@@ -73,8 +75,8 @@ public class CoSRuleInstaller {
         return new_device;
     }
 
-    //TODO generate selector
-    public void enqueue(Map<String, String> decodedPacket, long num, Objective.Operation type) {
+
+    public void enqueue(Map<String, String> decodedPacket, long num, PortNumber portNumber, Objective.Operation type) {
         String srcMacIndex = "outerSrcMac";
         String dstMacIndex = "outerDstMac";
         String srcIpIndex = "outerSrcIp";
@@ -93,14 +95,14 @@ public class CoSRuleInstaller {
                 .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
                 .build();
 
-
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
-        treatment.setQueue(num);
+        treatment.setQueue(num).setOutput(portNumber);
 
         ForwardingObjective.Builder objective = DefaultForwardingObjective
                 .builder().withTreatment(treatment.build()).withSelector(selector)
-                .withFlag(ForwardingObjective.Flag.VERSATILE).makeTemporary(10)
+                .withFlag(ForwardingObjective.Flag.VERSATILE).makePermanent()
                 .fromApp(appId).withPriority(DEFAULT_PRIORITY);
+
 
         for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
             log.info("device id : {}, device type : {}, device availablity : {}",
@@ -109,15 +111,87 @@ public class CoSRuleInstaller {
         }
     }
 
+    public void enqueue(Map<String, String> decodedPacket, PortNumber inport, PortNumber outport,
+                        long num, Objective.Operation type) {
+        String srcMacIndex = "outerSrcMac";
+        String dstMacIndex = "outerDstMac";
+        String srcIpIndex = "outerSrcIp";
+        String dstIpIndex = "outerDstIp";
+        String srcPortIndex = "outerSrcPort";
+
+        TrafficSelector selector = DefaultTrafficSelector.builder()
+                .matchInPort(inport)
+                .matchEthSrc(MacAddress.valueOf(decodedPacket.get(srcMacIndex)))
+                .matchEthDst(MacAddress.valueOf(decodedPacket.get(dstMacIndex)))
+                .matchIPProtocol(IPv4.PROTOCOL_UDP)
+                .matchEthType(Ethernet.TYPE_IPV4)
+                .matchIPSrc(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(srcIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
+                .matchIPDst(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(dstIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
+                .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
+                .build();
+
+        TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
+        treatment.setQueue(num)
+            .setOutput(outport);
+
+        ForwardingObjective.Builder objective = DefaultForwardingObjective
+                .builder().withTreatment(treatment.build()).withSelector(selector)
+                .withFlag(ForwardingObjective.Flag.VERSATILE).makeTemporary(DEFAULT_TIMEOUT)
+                .fromApp(appId).withPriority(DEFAULT_PRIORITY);
+
+
+        for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
+            log.info("device id : {}, device type : {}, device availablity : {}",
+                     device.id(), device.type(), deviceService.isAvailable(device.id()));
+            forward(device, objective, type);
+        }
+    }
+        //TODO generate selector
+    public void enqueue(Map<String, String> decodedPacket, long num, Objective.Operation type) {
+        String srcMacIndex = "outerSrcMac";
+        String dstMacIndex = "outerDstMac";
+        String srcIpIndex = "outerSrcIp";
+        String dstIpIndex = "outerDstIp";
+        String srcPortIndex = "outerSrcPort";
+        log.info("enqueue; decodedPacket : {}", decodedPacket.toString());
+
+
+        //FIXME IP selector prob
+        TrafficSelector selector = DefaultTrafficSelector.builder()
+                .matchEthSrc(MacAddress.valueOf(decodedPacket.get(srcMacIndex)))
+                .matchEthDst(MacAddress.valueOf(decodedPacket.get(dstMacIndex)))
+                .matchIPProtocol(IPv4.PROTOCOL_UDP)
+                .matchEthType(Ethernet.TYPE_IPV4)
+                .matchIPSrc(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(srcIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
+                .matchIPDst(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(dstIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
+                .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
+                .build();
+
+        TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
+        treatment.setQueue(num);
+
+        ForwardingObjective.Builder objective = DefaultForwardingObjective
+                .builder().withTreatment(treatment.build()).withSelector(selector)
+                .withFlag(ForwardingObjective.Flag.VERSATILE).makePermanent()
+                .fromApp(appId).withPriority(DEFAULT_PRIORITY);
+
+
+        for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
+            log.info("device id : {}, device type : {}, device availablity : {}",
+                     device.id(), device.type(), deviceService.isAvailable(device.id()));
+            forward(device, objective, type);
+        }
+    }
+
+
     private void forward(Device device, ForwardingObjective.Builder objective, Objective.Operation type) {
-            if(type.equals(Objective.Operation.ADD)) {
-                log.info("operation: {}, id: {}",type, device.id());
-                flowObjectiveService.forward(device.id(), objective.add());
-            }
-            else {
-                log.info("operation: {}, id: {}",type, device.id());
-                flowObjectiveService.forward(device.id(), objective.remove());
-            }
+        if (type.equals(Objective.Operation.ADD)) {
+            log.info("operation: {}, id: {}", type, device.id());
+            flowObjectiveService.forward(device.id(), objective.add());
+        } else {
+            log.info("operation: {}, id: {}", type, device.id());
+            flowObjectiveService.forward(device.id(), objective.remove());
+        }
 //        Method method = null;
 //        try {
 //            method = objective.getClass().getDeclaredMethod(type.toString().toLowerCase());
@@ -133,6 +207,7 @@ public class CoSRuleInstaller {
 //        }
     }
 }
+
 
 
 
