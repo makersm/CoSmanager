@@ -4,15 +4,13 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.osgi.DefaultServiceDirectory;
 import org.onlab.osgi.ServiceDirectory;
-import org.onlab.packet.Ethernet;
-import org.onlab.packet.IPv4;
-import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.TpPort;
 import org.onosproject.cli.Comparators;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.Device;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
@@ -27,7 +25,6 @@ import org.slf4j.Logger;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -64,10 +61,12 @@ public class CoSRuleInstaller {
         return devices;
     }
 
+//    FIXME I think it's not quite that require
     private List<Device> getAvailableSwitch(List<Device> devices) {
         List<Device> new_device = newArrayList();
         for (Device device : devices) {
-            //TODO find nec switch; we found buffalo by swVersion
+//            TODO find nec switch; we found buffalo by swVersion
+            log.info("device chassisId : {}", device.chassisId());
             if (deviceService.isAvailable(device.id()) && device.type() == Device.Type.SWITCH && device.swVersion().equals("2.4.0")) {
                 new_device.add(device);
             }
@@ -75,136 +74,43 @@ public class CoSRuleInstaller {
         return new_device;
     }
 
+    public void programCoSIn(PortNumber inPort, MacAddress srcMac, MacAddress dstMac,
+                             byte ipProtocolType, short etherProtocolType, IpPrefix srcIp,
+                             IpPrefix dstIp, TpPort srcPort, TpPort dstPort, PortNumber outPort,
+                             long queueNum, DeviceId deviceId, Objective.Operation type) {
 
-    public void enqueue(Map<String, String> decodedPacket, long num, PortNumber portNumber, Objective.Operation type) {
-        String srcMacIndex = "outerSrcMac";
-        String dstMacIndex = "outerDstMac";
-        String srcIpIndex = "outerSrcIp";
-        String dstIpIndex = "outerDstIp";
-        String srcPortIndex = "outerSrcPort";
-        log.info("enqueue; decodedPacket : {}", decodedPacket.toString());
-
-        //FIXME IP selector prob
         TrafficSelector selector = DefaultTrafficSelector.builder()
-                .matchEthSrc(MacAddress.valueOf(decodedPacket.get(srcMacIndex)))
-                .matchEthDst(MacAddress.valueOf(decodedPacket.get(dstMacIndex)))
-                .matchIPProtocol(IPv4.PROTOCOL_UDP)
-                .matchEthType(Ethernet.TYPE_IPV4)
-                .matchIPSrc(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(srcIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchIPDst(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(dstIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
+                .matchInPort(inPort)
+                .matchEthSrc(srcMac)
+                .matchEthDst(dstMac)
+                .matchIPProtocol(ipProtocolType)
+                .matchEthType(etherProtocolType)
+                .matchIPSrc(srcIp)
+                .matchIPDst(dstIp)
+                .matchUdpSrc(srcPort)
+                .matchUdpDst(dstPort)
                 .build();
 
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
-        treatment.setQueue(num).setOutput(portNumber);
-
-        ForwardingObjective.Builder objective = DefaultForwardingObjective
-                .builder().withTreatment(treatment.build()).withSelector(selector)
-                .withFlag(ForwardingObjective.Flag.VERSATILE).makePermanent()
-                .fromApp(appId).withPriority(DEFAULT_PRIORITY);
-
-
-        for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
-            log.info("device id : {}, device type : {}, device availablity : {}",
-                     device.id(), device.type(), deviceService.isAvailable(device.id()));
-            forward(device, objective, type);
-        }
-    }
-
-    public void enqueue(Map<String, String> decodedPacket, PortNumber inport, PortNumber outport,
-                        long num, Objective.Operation type) {
-        String srcMacIndex = "outerSrcMac";
-        String dstMacIndex = "outerDstMac";
-        String srcIpIndex = "outerSrcIp";
-        String dstIpIndex = "outerDstIp";
-        String srcPortIndex = "outerSrcPort";
-
-        TrafficSelector selector = DefaultTrafficSelector.builder()
-                .matchInPort(inport)
-                .matchEthSrc(MacAddress.valueOf(decodedPacket.get(srcMacIndex)))
-                .matchEthDst(MacAddress.valueOf(decodedPacket.get(dstMacIndex)))
-                .matchIPProtocol(IPv4.PROTOCOL_UDP)
-                .matchEthType(Ethernet.TYPE_IPV4)
-                .matchIPSrc(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(srcIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchIPDst(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(dstIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
-                .build();
-
-        TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
-        treatment.setQueue(num)
-            .setOutput(outport);
+        treatment.setOutput(outPort)
+                .setQueue(queueNum);
 
         ForwardingObjective.Builder objective = DefaultForwardingObjective
                 .builder().withTreatment(treatment.build()).withSelector(selector)
                 .withFlag(ForwardingObjective.Flag.VERSATILE).makeTemporary(DEFAULT_TIMEOUT)
                 .fromApp(appId).withPriority(DEFAULT_PRIORITY);
 
-
-        for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
-            log.info("device id : {}, device type : {}, device availablity : {}",
-                     device.id(), device.type(), deviceService.isAvailable(device.id()));
-            forward(device, objective, type);
-        }
-    }
-        //TODO generate selector
-    public void enqueue(Map<String, String> decodedPacket, long num, Objective.Operation type) {
-        String srcMacIndex = "outerSrcMac";
-        String dstMacIndex = "outerDstMac";
-        String srcIpIndex = "outerSrcIp";
-        String dstIpIndex = "outerDstIp";
-        String srcPortIndex = "outerSrcPort";
-        log.info("enqueue; decodedPacket : {}", decodedPacket.toString());
-
-
-        //FIXME IP selector prob
-        TrafficSelector selector = DefaultTrafficSelector.builder()
-                .matchEthSrc(MacAddress.valueOf(decodedPacket.get(srcMacIndex)))
-                .matchEthDst(MacAddress.valueOf(decodedPacket.get(dstMacIndex)))
-                .matchIPProtocol(IPv4.PROTOCOL_UDP)
-                .matchEthType(Ethernet.TYPE_IPV4)
-                .matchIPSrc(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(srcIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchIPDst(IpPrefix.valueOf(IpAddress.valueOf(decodedPacket.get(dstIpIndex)), IpPrefix.MAX_INET_MASK_LENGTH))
-                .matchUdpSrc(TpPort.tpPort(Integer.parseInt(decodedPacket.get(srcPortIndex))))
-                .build();
-
-        TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
-        treatment.setQueue(num);
-
-        ForwardingObjective.Builder objective = DefaultForwardingObjective
-                .builder().withTreatment(treatment.build()).withSelector(selector)
-                .withFlag(ForwardingObjective.Flag.VERSATILE).makePermanent()
-                .fromApp(appId).withPriority(DEFAULT_PRIORITY);
-
-
-        for (Device device : getAvailableSwitch(getSortedDevices(deviceService))) {
-            log.info("device id : {}, device type : {}, device availablity : {}",
-                     device.id(), device.type(), deviceService.isAvailable(device.id()));
-            forward(device, objective, type);
-        }
+            forward(deviceId, objective, type);
     }
 
-
-    private void forward(Device device, ForwardingObjective.Builder objective, Objective.Operation type) {
+    private void forward(DeviceId deviceId, ForwardingObjective.Builder objective, Objective.Operation type) {
         if (type.equals(Objective.Operation.ADD)) {
-            log.info("operation: {}, id: {}", type, device.id());
-            flowObjectiveService.forward(device.id(), objective.add());
+            log.info("operation: {}, id: {}", type, deviceId);
+            flowObjectiveService.forward(deviceId, objective.add());
         } else {
-            log.info("operation: {}, id: {}", type, device.id());
-            flowObjectiveService.forward(device.id(), objective.remove());
+            log.info("operation: {}, id: {}", type, deviceId);
+            flowObjectiveService.forward(deviceId, objective.remove());
         }
-//        Method method = null;
-//        try {
-//            method = objective.getClass().getDeclaredMethod(type.toString().toLowerCase());
-//            assert method != null;
-//            for (Device device : devices)
-//                flowObjectiveService.forward(device.id(), (ForwardingObjective) method.invoke(objective));
-//        } catch (NoSuchMethodException e) {
-//            e.printStackTrace();
-//        } catch (IllegalAccessException e) {
-//            e.printStackTrace();
-//        } catch (InvocationTargetException e) {
-//            e.printStackTrace();
-//        }
     }
 }
 

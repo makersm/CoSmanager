@@ -24,15 +24,19 @@ import org.apache.felix.scr.annotations.Service;
 import org.iris4sdn.csdncm.cosmanager.CoSService;
 import org.iris4sdn.csdncm.vxlanflowmapper.DefaultOuterPacket;
 import org.iris4sdn.csdncm.vxlanflowmapper.InnerPacket;
-import org.iris4sdn.csdncm.vxlanflowmapper.MapperEvent;
-import org.iris4sdn.csdncm.vxlanflowmapper.MapperListener;
+import org.iris4sdn.csdncm.vxlanflowmapper.OuterPacket;
 import org.iris4sdn.csdncm.vxlanflowmapper.VxlanFlowMappingService;
-import org.iris4sdn.csdncm.vxlanflowmapper.VxlanPacketParser;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IPv4;
+import org.onlab.packet.Ip4Address;
+import org.onlab.packet.IpPrefix;
+import org.onlab.packet.MacAddress;
+import org.onlab.packet.TpPort;
+import org.onlab.packet.UDP;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.Host;
 import org.onosproject.net.HostId;
 import org.onosproject.net.Path;
@@ -51,7 +55,6 @@ import org.onosproject.store.service.LogicalClockService;
 import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 
-import java.util.Map;
 import java.util.Set;
 
 import static org.slf4j.LoggerFactory.getLogger;
@@ -89,13 +92,16 @@ public class CoSManager implements CoSService {
 
     private ApplicationId appId;
 
-    private MapperListener vxlanMapperListener = new InnerVxlanMapperListener();
-    private CoSListener vnidRuleListener = new CoSListener();
-    private CoSPacketProcessor processor = new CoSPacketProcessor();
+    private CoSListener vnidRuleListener;
+    private CoSPacketProcessor processor;
     private static CoSRuleInstaller installer;
 
     @Activate
     public void activate() {
+
+        vnidRuleListener = new CoSListener();
+        processor = new CoSPacketProcessor();
+
         appId = coreService.registerApplication(APP_ID);
         installer = CoSRuleInstaller.ruleInstaller(appId);
         packetService.addProcessor(processor, PacketProcessor.director(2));
@@ -111,7 +117,6 @@ public class CoSManager implements CoSService {
                 .build();
 
         vnidRuleStore.addListener(vnidRuleListener);
-        vxlanFlowMappingService.addListener(vxlanMapperListener);
 
         log.info("-------------!{} started!--------------", appId.id());
     }
@@ -119,7 +124,8 @@ public class CoSManager implements CoSService {
     @Deactivate
     public void deactivate() {
         vnidRuleStore.removeListener(vnidRuleListener);
-        vxlanFlowMappingService.removeListener(vxlanMapperListener);
+        packetService.removeProcessor(processor);
+
         processor = null;
         log.info("-----------!EXTERMINATE!-------------");
     }
@@ -157,37 +163,6 @@ public class CoSManager implements CoSService {
         }
     }
 
-    private void processMapper(String outerPacket, InnerPacket innerPacket, Objective.Operation type) {
-        log.info("processMapper : vid {}", innerPacket.vnid());
-        if (vnidRuleStore.containsKey(innerPacket.vnid())) {
-            Map<String, String> out = DefaultOuterPacket.decodeStringPacket(outerPacket);
-            //TODO generate cos rule to fwd
-            //installer.enqueue(out, vnidRuleStore.get(innerPacket.vnid()), type);
-        }
-    }
-
-    private void sth(Map<String, String> sh, PortNumber portNumber, Objective.Operation type) {
-        int packetVnid = Integer.parseInt(sh.get("vnid"));
-        if (vnidRuleStore.containsKey(packetVnid)) {
-            installer.enqueue(sh, vnidRuleStore.get(packetVnid), portNumber, type);
-        }
-    }
-
-    /**
-     * packetStorage Listener in vxlanflowmapper
-     */
-    public class InnerVxlanMapperListener implements MapperListener {
-        @Override
-        public void event(MapperEvent event) {
-            EventuallyConsistentMapEvent<String, InnerPacket> mapper = event.subject();
-            if (MapperEvent.Type.MAPPER_PUT == event.type()) {
-                processMapper(mapper.key(), mapper.value(), Objective.Operation.ADD);
-            } else if (MapperEvent.Type.MAPPER_REMOVE == event.type()) {
-                processMapper(mapper.key(), mapper.value(), Objective.Operation.REMOVE);
-            }
-        }
-    }
-
     private Path pickForwardPathIfPossible(Set<Path> paths, PortNumber notToPort) {
         Path lastPath = null;
         for (Path path : paths) {
@@ -217,13 +192,11 @@ public class CoSManager implements CoSService {
             }
 
             HostId id = HostId.hostId(ethPkt.getDestinationMAC());
-            log.info("get port num : id {}", id);
             if (id.mac().isLinkLocal()) {
                 return null;
             }
 
             Host dst = hostService.getHost(id);
-            log.info("get port num : dst {}", dst);
             if (dst == null) {
                 return null;
             }
@@ -247,13 +220,57 @@ public class CoSManager implements CoSService {
             if (path == null) {
                 return checkFloodPoint(context);
             }
+
             return path.src().port();
         } catch (NullPointerException e) {
             return null;
         }
+    }
 
-        // Otherwise forward and be done with it.
+    private void processCoSchecker(PacketContext context, Ethernet ethernet) {
+        //FIXME Is parsing outerPacket in cos manager right?
+        MacAddress outerSrcMac = ethernet.getSourceMAC();
+        MacAddress outerDstMac = ethernet.getDestinationMAC();
 
+        IPv4 outerIpv4Packet = (IPv4)ethernet.getPayload();
+        Ip4Address outerSrcIp = Ip4Address.valueOf(outerIpv4Packet.getSourceAddress());
+        Ip4Address outerDstIp = Ip4Address.valueOf(outerIpv4Packet.getDestinationAddress());
+
+        UDP udpPacket = (UDP)outerIpv4Packet.getPayload();
+        int outerSrcPort = udpPacket.getSourcePort();
+        int outerDstPort = udpPacket.getDestinationPort();
+
+        OuterPacket outerPacket = new DefaultOuterPacket(
+                outerSrcMac, outerDstMac, outerSrcIp,
+                outerDstIp, outerSrcPort, outerDstPort
+        );
+
+        log.info("outerPacket : {}", outerPacket.toString());
+
+        InnerPacket innerPacket = vxlanFlowMappingService.getInnerPacket(outerPacket);
+        if(innerPacket == null) {
+            return;
+        }
+
+        PortNumber outPort = getPortNumPath(context);
+        PortNumber inPort = context.inPacket().receivedFrom().port();
+        DeviceId deviceId = context.inPacket().receivedFrom().deviceId();
+        Integer vnid = innerPacket.vnid();
+        log.info("CoSPacketProcessor : {}", vnid);
+
+        if(outPort == null || !vnidRuleStore.containsKey(vnid)) {
+            log.info("no proper port or CoS");
+            return;
+        }
+
+        installer.programCoSIn(
+                inPort, outerSrcMac, outerDstMac, IPv4.PROTOCOL_UDP, Ethernet.TYPE_IPV4,
+                IpPrefix.valueOf(outerSrcIp, IpPrefix.MAX_INET_MASK_LENGTH),
+                IpPrefix.valueOf(outerDstIp, IpPrefix.MAX_INET_MASK_LENGTH),
+                TpPort.tpPort(outerSrcPort), TpPort.tpPort(outerDstPort),
+                outPort, vnidRuleStore.get(vnid),
+                deviceId, Objective.Operation.ADD
+        );
     }
 
     private class CoSPacketProcessor implements PacketProcessor {
@@ -268,23 +285,7 @@ public class CoSManager implements CoSService {
             if (ethernet.getEtherType() == Ethernet.TYPE_IPV4) {
                 IPv4 ipPacket = (IPv4) ethernet.getPayload();
                 if (ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
-                    Map<String, String> parse = VxlanPacketParser.packetParsed(ethernet);
-
-                    log.info(parse.toString());
-
-                    PortNumber port = getPortNumPath(context);
-
-                    Integer vnid = Integer.parseInt(parse.get("vnid"));
-                    log.info("CoSPacketProcessor : {}", vnid);
-
-                    if(port == null || !vnidRuleStore.containsKey(vnid)) {
-                        log.info("no proper port or CoS");
-                        return;
-                    }
-
-                    installer.enqueue(parse, context.inPacket().receivedFrom().port(),
-                                      port, vnidRuleStore.get(vnid), Objective.Operation.ADD);
-                    parse = null;
+                    processCoSchecker(context, ethernet);
                 }
             }
         }
