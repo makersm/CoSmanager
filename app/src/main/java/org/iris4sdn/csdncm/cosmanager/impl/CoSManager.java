@@ -201,12 +201,14 @@ public class CoSManager implements CoSService {
                 return null;
             }
 
+            // edge switch
             if (pkt.receivedFrom().deviceId().equals(dst.location().deviceId())) {
                 if (!context.inPacket().receivedFrom().port().equals(dst.location().port())) {
                     return dst.location().port();
                 }
             }
 
+            // not edge switch
             Set<Path> paths =
                     topologyService.getPaths(topologyService.currentTopology(),
                                              pkt.receivedFrom().deviceId(),
@@ -215,6 +217,7 @@ public class CoSManager implements CoSService {
                 return checkFloodPoint(context);
             }
 
+            //check not to go back
             Path path = pickForwardPathIfPossible(paths, pkt.receivedFrom().port());
 
             if (path == null) {

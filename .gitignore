@@ -1,0 +1,7 @@
+*.iml
+*.idea
+
+# compiled
+app/target/*
+api/target/*
+target/*

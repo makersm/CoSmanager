@@ -7,9 +7,7 @@ import org.onlab.osgi.ServiceDirectory;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.TpPort;
-import org.onosproject.cli.Comparators;
 import org.onosproject.core.ApplicationId;
-import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
@@ -23,10 +21,6 @@ import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.flowobjective.Objective;
 import org.slf4j.Logger;
 
-import java.util.Collections;
-import java.util.List;
-
-import static com.google.common.collect.Lists.newArrayList;
 import static org.slf4j.LoggerFactory.getLogger;
 
 
@@ -53,25 +47,6 @@ public class CoSRuleInstaller {
 
     public static CoSRuleInstaller ruleInstaller(ApplicationId appId) {
         return new CoSRuleInstaller(appId);
-    }
-
-    private static List<Device> getSortedDevices(DeviceService service) {
-        List<Device> devices = newArrayList(service.getDevices());
-        Collections.sort(devices, Comparators.ELEMENT_COMPARATOR);
-        return devices;
-    }
-
-//    FIXME I think it's not quite that require
-    private List<Device> getAvailableSwitch(List<Device> devices) {
-        List<Device> new_device = newArrayList();
-        for (Device device : devices) {
-//            TODO find nec switch; we found buffalo by swVersion
-            log.info("device chassisId : {}", device.chassisId());
-            if (deviceService.isAvailable(device.id()) && device.type() == Device.Type.SWITCH && device.swVersion().equals("2.4.0")) {
-                new_device.add(device);
-            }
-        }
-        return new_device;
     }
 
     public void programCoSIn(PortNumber inPort, MacAddress srcMac, MacAddress dstMac,
