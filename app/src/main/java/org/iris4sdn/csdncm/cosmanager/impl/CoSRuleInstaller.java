@@ -35,7 +35,7 @@ public class CoSRuleInstaller {
     private final DeviceService deviceService;
 
     private final ApplicationId appId;
-    private static final int DEFAULT_PRIORITY = 20;
+    private static final int DEFAULT_PRIORITY = 35000;
     private static final int DEFAULT_TIMEOUT = 10;
 
     private CoSRuleInstaller(ApplicationId appId) {
