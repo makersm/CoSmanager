@@ -67,8 +67,7 @@ public class CoSRuleInstaller {
                 .build();
 
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
-        treatment.setOutput(outPort)
-                .setQueue(queueNum);
+        treatment.setQueue(queueNum, outPort);
 
         ForwardingObjective.Builder objective = DefaultForwardingObjective
                 .builder().withTreatment(treatment.build()).withSelector(selector)
