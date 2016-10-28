@@ -30,8 +30,8 @@ public class CoSListCommand extends AbstractShellCommand {
 
     @Override
     protected void execute() {
-        for(int key : cosService.getVnidkeySet() ){
-            print(String.format("vnid : %d, cos : %s", key, cosService.getVnidValue(key)) );
+        for(String key : cosService.getVnidkeySet() ){
+            print(String.format("vnid : %s, cos : %s", key, cosService.getVnidValue(key)) );
         }
     }
 

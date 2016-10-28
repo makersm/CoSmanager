@@ -21,6 +21,7 @@ import org.onosproject.rest.AbstractWebResource;
 import org.slf4j.Logger;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
@@ -46,7 +47,7 @@ public class CoSWebResource extends AbstractWebResource {
         try {
             JsonNode jsonTree = mapper().readTree(stream);
             for(JsonNode js  : jsonTree) {
-                cosService.addVnidTable(js.get("vnid").asInt(), js.get("cos").asInt());
+                cosService.addVnidTable(js.get("vnid").toString(), js.get("cos").toString());
             }
             return Response.ok().build();
         } catch (Exception e) {
@@ -61,7 +62,7 @@ public class CoSWebResource extends AbstractWebResource {
         try {
             JsonNode jsonTree = mapper().readTree(stream);
             for(JsonNode js  : jsonTree) {
-                cosService.deleteVnidTable(js.get("vnid").asInt());
+                cosService.deleteVnidTable(js.get("vnid").toString());
             }
             return Response.ok().build();
         } catch (Exception e) {

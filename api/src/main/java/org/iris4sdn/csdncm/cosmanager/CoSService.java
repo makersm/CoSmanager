@@ -10,24 +10,24 @@ public interface CoSService {
      * @param vnid
      * @param cos
      */
-    void addVnidTable(int vnid, int cos);
+    void addVnidTable(String vnid, String cos);
 
     /**
      * delete vnid-cos table's tuple
      * @param vnid
      */
-    void deleteVnidTable(int vnid);
+    void deleteVnidTable(String vnid);
 
     /**
      * get vnid-cos table's key set
      * @return keysset
      */
-    Set<Integer> getVnidkeySet();
+    Set<String> getVnidkeySet();
 
     /**
      * get vnid-cos table's value by key
      * @param vnid
      * @return
      */
-    int getVnidValue(int vnid);
+    String getVnidValue(String vnid);
 }

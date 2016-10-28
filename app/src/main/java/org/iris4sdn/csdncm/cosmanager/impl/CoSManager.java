@@ -67,7 +67,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class CoSManager implements CoSService {
     private static final Logger log = getLogger(CoSManager.class);
     private static final String APP_ID = "org.iris4sdn.csdncm.cosmanager";
-    public EventuallyConsistentMap<Integer, Integer> vnidRuleStore;
+    public EventuallyConsistentMap<String, String> vnidRuleStore;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
@@ -111,7 +111,7 @@ public class CoSManager implements CoSService {
                 .register(Integer.class);
 
         vnidRuleStore = storageService
-                .<Integer, Integer>eventuallyConsistentMapBuilder()
+                .<String, String>eventuallyConsistentMapBuilder()
                 .withName("VnidRuleMap").withSerializer(serializer)
                 .withTimestampProvider((k, v) -> clockService.getTimestamp())
                 .build();
@@ -131,29 +131,29 @@ public class CoSManager implements CoSService {
     }
 
     @Override
-    public void addVnidTable(int vnid, int cos) {
+    public void addVnidTable(String vnid, String cos) {
         vnidRuleStore.put(vnid, cos);
     }
 
     @Override
-    public void deleteVnidTable(int vnid) {
+    public void deleteVnidTable(String vnid) {
         vnidRuleStore.remove(vnid);
     }
 
     @Override
-    public Set<Integer> getVnidkeySet() {
+    public Set<String> getVnidkeySet() {
         return vnidRuleStore.keySet();
     }
 
     @Override
-    public int getVnidValue(int vnid) {
+    public String getVnidValue(String vnid) {
         return vnidRuleStore.get(vnid);
     }
 
 
-    public class CoSListener implements EventuallyConsistentMapListener<Integer, Integer> {
+    public class CoSListener implements EventuallyConsistentMapListener<String, String> {
         @Override
-        public void event(EventuallyConsistentMapEvent<Integer, Integer> eventuallyConsistentMapEvent) {
+        public void event(EventuallyConsistentMapEvent<String, String> eventuallyConsistentMapEvent) {
             if (eventuallyConsistentMapEvent.type() == EventuallyConsistentMapEvent.Type.PUT) {
                 log.info("Put data : vnid) {} cos) {}", eventuallyConsistentMapEvent.key(), eventuallyConsistentMapEvent.value());
             }
@@ -261,7 +261,7 @@ public class CoSManager implements CoSService {
         Integer vnid = innerPacket.vnid();
         log.info("CoSPacketProcessor : {}", vnid);
 
-        if(outPort == null || !vnidRuleStore.containsKey(vnid)) {
+        if(outPort == null || !vnidRuleStore.containsKey(vnid.toString())) {
             log.info("no proper port or CoS");
             return;
         }
@@ -271,7 +271,7 @@ public class CoSManager implements CoSService {
                 IpPrefix.valueOf(outerSrcIp, IpPrefix.MAX_INET_MASK_LENGTH),
                 IpPrefix.valueOf(outerDstIp, IpPrefix.MAX_INET_MASK_LENGTH),
                 TpPort.tpPort(outerSrcPort), TpPort.tpPort(outerDstPort),
-                outPort, vnidRuleStore.get(vnid),
+                outPort, Integer.parseInt(vnidRuleStore.get(vnid.toString())),
                 deviceId, Objective.Operation.ADD
         );
     }
