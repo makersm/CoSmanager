@@ -35,13 +35,12 @@ import static org.slf4j.LoggerFactory.getLogger;
 /**
  * Sample web resource.
  */
-@Path("cos")
+@Path("queue")
 public class CoSWebResource extends AbstractWebResource {
     private final Logger log = getLogger(getClass());
     private CoSService cosService = getService(CoSService.class);
 
     @POST
-    @Path("addVnidTable")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response put(InputStream stream) {
         try {
@@ -55,8 +54,7 @@ public class CoSWebResource extends AbstractWebResource {
         }
     }
 
-    @POST
-    @Path("deleteVnidTable")
+    @DELETE
     @Consumes(MediaType.APPLICATION_JSON)
     public Response remove(InputStream stream) {
         try {

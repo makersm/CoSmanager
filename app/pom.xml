@@ -32,7 +32,7 @@
     <properties>
         <onos.app.name>org.iris4sdn.csdncm.cosmanager</onos.app.name>
         <onos.version>1.5.0-SNAPSHOT</onos.version>
-        <web.context>/onos/cosmanager</web.context>
+        <web.context>/iris4sdn/v1/csdncm/cos</web.context>
         <api.version>1.0.0</api.version>
         <api.title>CoS manager app</api.title>
         <api.description>cos manager app</api.description>
