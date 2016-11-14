@@ -32,7 +32,6 @@ public class CoSRuleInstaller {
     private final Logger log = getLogger(getClass());
 
     private final FlowObjectiveService flowObjectiveService;
-    private final DeviceService deviceService;
 
     private final ApplicationId appId;
     private static final int DEFAULT_PRIORITY = 25000;
@@ -41,7 +40,6 @@ public class CoSRuleInstaller {
     private CoSRuleInstaller(ApplicationId appId) {
         ServiceDirectory serviceDirectory = new DefaultServiceDirectory();
         this.flowObjectiveService = serviceDirectory.get(FlowObjectiveService.class);
-        this.deviceService = serviceDirectory.get(DeviceService.class);
         this.appId = appId;
     }
 

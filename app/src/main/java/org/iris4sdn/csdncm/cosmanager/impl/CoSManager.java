@@ -41,6 +41,10 @@ import org.onosproject.net.Host;
 import org.onosproject.net.HostId;
 import org.onosproject.net.Path;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.FlowRule;
+import org.onosproject.net.flow.FlowRuleService;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.flow.criteria.UdpPortCriterion;
 import org.onosproject.net.flowobjective.Objective;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.packet.InboundPacket;
@@ -55,7 +59,10 @@ import org.onosproject.store.service.LogicalClockService;
 import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -67,7 +74,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class CoSManager implements CoSService {
     private static final Logger log = getLogger(CoSManager.class);
     private static final String APP_ID = "org.iris4sdn.csdncm.cosmanager";
-    public EventuallyConsistentMap<String, String> vnidRuleStore;
+    public EventuallyConsistentMap<String, String> restQueueRuleStore;
+    public HashMap<String, Set<String>> generateRuleStore;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
@@ -90,6 +98,9 @@ public class CoSManager implements CoSService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected HostService hostService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected FlowRuleService flowRuleService;
+
     private ApplicationId appId;
 
     private CoSListener vnidRuleListener;
@@ -110,46 +121,51 @@ public class CoSManager implements CoSService {
                 .register(String.class)
                 .register(Integer.class);
 
-        vnidRuleStore = storageService
+        restQueueRuleStore = storageService
                 .<String, String>eventuallyConsistentMapBuilder()
                 .withName("VnidRuleMap").withSerializer(serializer)
                 .withTimestampProvider((k, v) -> clockService.getTimestamp())
                 .build();
 
-        vnidRuleStore.addListener(vnidRuleListener);
+        generateRuleStore = new HashMap<>();
 
-        log.info("-------------!{} started!--------------", appId.id());
+        restQueueRuleStore.addListener(vnidRuleListener);
+
+        log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
-        vnidRuleStore.removeListener(vnidRuleListener);
+        restQueueRuleStore.removeListener(vnidRuleListener);
         packetService.removeProcessor(processor);
 
         processor = null;
-        log.info("-----------!EXTERMINATE!-------------");
+        log.info("Stopped");
     }
 
     @Override
     public void addVnidTable(String vnid, String cos) {
-        vnidRuleStore.put(vnid, cos);
+        if(restQueueRuleStore.containsKey(vnid)){
+            processCoSRemove(vnid);
+        }
+        restQueueRuleStore.put(vnid, cos);
     }
 
     @Override
     public void deleteVnidTable(String vnid) {
-        vnidRuleStore.remove(vnid);
+        processCoSRemove(vnid);
+        restQueueRuleStore.remove(vnid);
     }
 
     @Override
     public Set<String> getVnidkeySet() {
-        return vnidRuleStore.keySet();
+        return restQueueRuleStore.keySet();
     }
 
     @Override
     public String getVnidValue(String vnid) {
-        return vnidRuleStore.get(vnid);
+        return restQueueRuleStore.get(vnid);
     }
-
 
     public class CoSListener implements EventuallyConsistentMapListener<String, String> {
         @Override
@@ -230,16 +246,35 @@ public class CoSManager implements CoSService {
         }
     }
 
-    private void processCoSchecker(PacketContext context, Ethernet ethernet) {
+    private void processCoSRemove(String vnid) {
+        Iterable<FlowRule> flowEntries = flowRuleService.getFlowRulesById(appId);
+
+        if (!flowEntries.iterator().hasNext()) {
+            log.info("no queue rules already");
+            return;
+        }
+
+        if (generateRuleStore.containsKey(vnid)) {
+            StreamSupport.stream(flowEntries.spliterator(), false)
+                    .filter(entry -> {
+                        UdpPortCriterion udp = (UdpPortCriterion) entry.selector().getCriterion(Criterion.Type.UDP_SRC);
+                        return generateRuleStore.get(vnid).contains(udp.udpPort().toString());
+                    })
+                    .forEach(flowRuleService::removeFlowRules);
+            generateRuleStore.remove(vnid);
+        }
+    }
+
+    private void processCoSAdd(PacketContext context, Ethernet ethernet) {
         //FIXME Is parsing outerPacket in cos manager right?
         MacAddress outerSrcMac = ethernet.getSourceMAC();
         MacAddress outerDstMac = ethernet.getDestinationMAC();
 
-        IPv4 outerIpv4Packet = (IPv4)ethernet.getPayload();
+        IPv4 outerIpv4Packet = (IPv4) ethernet.getPayload();
         Ip4Address outerSrcIp = Ip4Address.valueOf(outerIpv4Packet.getSourceAddress());
         Ip4Address outerDstIp = Ip4Address.valueOf(outerIpv4Packet.getDestinationAddress());
 
-        UDP udpPacket = (UDP)outerIpv4Packet.getPayload();
+        UDP udpPacket = (UDP) outerIpv4Packet.getPayload();
         int outerSrcPort = udpPacket.getSourcePort();
         int outerDstPort = udpPacket.getDestinationPort();
 
@@ -251,7 +286,7 @@ public class CoSManager implements CoSService {
         log.info("outerPacket : {}", outerPacket.toString());
 
         InnerPacket innerPacket = vxlanFlowMappingService.getInnerPacket(outerPacket);
-        if(innerPacket == null) {
+        if (innerPacket == null) {
             return;
         }
 
@@ -261,17 +296,27 @@ public class CoSManager implements CoSService {
         Integer vnid = innerPacket.vnid();
         log.info("CoSPacketProcessor : {}", vnid);
 
-        if(outPort == null || !vnidRuleStore.containsKey(vnid.toString())) {
+        if (outPort == null || !restQueueRuleStore.containsKey(vnid.toString())) {
             log.info("no proper port or CoS");
             return;
         }
+
+        String s_vnid = String.valueOf(vnid);
+
+        Set<String> tmp = new HashSet<>();
+        if (generateRuleStore.containsKey(s_vnid)) {
+            tmp = generateRuleStore.get(s_vnid);
+        }
+
+        tmp.add(String.valueOf(outerSrcPort));
+        generateRuleStore.put(s_vnid, tmp);
 
         installer.programCoSIn(
                 inPort, outerSrcMac, outerDstMac, IPv4.PROTOCOL_UDP, Ethernet.TYPE_IPV4,
                 IpPrefix.valueOf(outerSrcIp, IpPrefix.MAX_INET_MASK_LENGTH),
                 IpPrefix.valueOf(outerDstIp, IpPrefix.MAX_INET_MASK_LENGTH),
                 TpPort.tpPort(outerSrcPort), TpPort.tpPort(outerDstPort),
-                outPort, Integer.parseInt(vnidRuleStore.get(vnid.toString())),
+                outPort, Integer.parseInt(restQueueRuleStore.get(vnid.toString())),
                 deviceId, Objective.Operation.ADD
         );
     }
@@ -288,7 +333,7 @@ public class CoSManager implements CoSService {
             if (ethernet.getEtherType() == Ethernet.TYPE_IPV4) {
                 IPv4 ipPacket = (IPv4) ethernet.getPayload();
                 if (ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
-                    processCoSchecker(context, ethernet);
+                    processCoSAdd(context, ethernet);
                 }
             }
         }
