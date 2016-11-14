@@ -24,9 +24,9 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
 import java.io.InputStream;
 
 import static org.slf4j.LoggerFactory.getLogger;
@@ -45,7 +45,7 @@ public class CoSWebResource extends AbstractWebResource {
     public Response put(InputStream stream) {
         try {
             JsonNode jsonTree = mapper().readTree(stream);
-            for(JsonNode js  : jsonTree) {
+            for (JsonNode js : jsonTree) {
                 cosService.addVnidTable(js.get("vnid").toString(), js.get("cos").toString());
             }
             return Response.ok().build();
@@ -56,12 +56,10 @@ public class CoSWebResource extends AbstractWebResource {
 
     @DELETE
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response remove(InputStream stream) {
+    @Path("{vnid}")
+    public Response remove(@PathParam("vnid") String vnid) {
         try {
-            JsonNode jsonTree = mapper().readTree(stream);
-            for(JsonNode js  : jsonTree) {
-                cosService.deleteVnidTable(js.get("vnid").toString());
-            }
+            cosService.deleteVnidTable(vnid);
             return Response.ok().build();
         } catch (Exception e) {
             throw new IllegalArgumentException(e);
